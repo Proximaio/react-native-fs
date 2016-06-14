@@ -1,5 +1,6 @@
 package com.rnfs;
 
+import java.nio.channels.FileChannel;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -111,13 +112,24 @@ public class RNFSManager extends ReactContextBaseJavaModule {
     try {
       File from = new File(filepath);
       File to = new File(destPath);
-      from.renameTo(to);
+      moveFileAcrossPartition(from, to);
+      from.delete();
 
       callback.invoke(null, true, destPath);
     } catch (Exception ex) {
       ex.printStackTrace();
       callback.invoke(makeErrorPayload(ex));
     }
+  }
+
+  void moveFileAcrossPartition(File source, File destination) throws Exception {
+    FileInputStream inStream = new FileInputStream(source);
+    FileOutputStream outStream = new FileOutputStream(destination);
+    FileChannel inChannel = inStream.getChannel();
+    FileChannel outChannel = outStream.getChannel();
+    inChannel.transferTo(0, inChannel.size(), outChannel);
+    inStream.close();
+    outStream.close();
   }
 
   @ReactMethod
@@ -226,14 +238,12 @@ public class RNFSManager extends ReactContextBaseJavaModule {
       URL url = new URL(options.getString("fromUrl"));
       final int jobId = options.getInt("jobId");
       ReadableMap headers = options.getMap("headers");
-      int progressDivider = options.getInt("progressDivider");
 
       DownloadParams params = new DownloadParams();
 
       params.src = url;
       params.dest = file;
       params.headers = headers;
-      params.progressDivider = progressDivider;
 
       params.onTaskCompleted = new DownloadParams.OnTaskCompleted() {
         public void onTaskCompleted(DownloadResult res) {
